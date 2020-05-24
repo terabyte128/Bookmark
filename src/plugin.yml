@@ -1,0 +1,11 @@
+name: Bookmark
+version: 0.0.1
+author: Sam Wolfson
+main: com.samwolfson.bookmark.Bookmark
+api-version: 1.15
+commands:
+  bookmark:
+    description: Create, manage, and navigate to, bookmarked locations.
+    permission: bookmark.bookmark
+    aliases:
+      - bm
