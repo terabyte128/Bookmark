@@ -1,5 +1,5 @@
 # Bookmark
-Bookmark and navigate to locations on your Spigot server.
+Bookmark and navigate to locations on your Spigot server. For those who don't want warps, but do want a way to remember where you were.
 
 Commands:
 
