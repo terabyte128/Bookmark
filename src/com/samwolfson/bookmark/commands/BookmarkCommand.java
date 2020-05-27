@@ -32,11 +32,11 @@ public class BookmarkCommand implements TabExecutor {
         // bad
         if (args.length < 1) {
             p.sendMessage("Usage:");
-            p.sendMessage("  /" + label + " set <name>: set a new bookmark");
-            p.sendMessage("  /" + label + " [list|ls]: show all bookmarks");
+            p.sendMessage("  /" + label + " set <name>: set a new bookmark called <name>");
+            p.sendMessage("  /" + label + " list: show all bookmarks (alias: ls)");
             p.sendMessage("  /" + label + " del <name>: delete bookmark");
             p.sendMessage("  /" + label + " nav <name>: navigate to bookmark");
-            p.sendMessage("  /" + label + " [clear|clr]: clear navigation");
+            p.sendMessage("  /" + label + " clear: clear navigation (alias: clr)");
             return false;
         }
 
