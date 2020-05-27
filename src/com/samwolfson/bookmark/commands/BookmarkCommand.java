@@ -1,6 +1,9 @@
 package com.samwolfson.bookmark.commands;
 
 import com.samwolfson.bookmark.*;
+import com.samwolfson.bookmark.locatable.Locatable;
+import com.samwolfson.bookmark.locatable.PlayerLocation;
+import com.samwolfson.bookmark.locatable.StaticLocation;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
@@ -11,6 +14,7 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class BookmarkCommand implements TabExecutor {
     Bookmark plugin;
@@ -36,6 +40,7 @@ public class BookmarkCommand implements TabExecutor {
             p.sendMessage("  /" + label + " list: show all bookmarks (alias: ls)");
             p.sendMessage("  /" + label + " del <name>: delete bookmark");
             p.sendMessage("  /" + label + " nav <name>: navigate to bookmark");
+            p.sendMessage("  /" + label + " navpl <player>: navigate to another player");
             p.sendMessage("  /" + label + " clear: clear navigation (alias: clr)");
             return false;
         }
@@ -131,7 +136,7 @@ public class BookmarkCommand implements TabExecutor {
                 if (playerConfig.hasLocation(args[1])) {
                     Location desired = playerConfig.getLocation(args[1]);
                     if (Objects.equals(p.getLocation().getWorld(), desired.getWorld())) {
-                        PlayerNavTask.addPlayer(p, desired);
+                        PlayerNavTask.addPlayer(p, new StaticLocation(desired));
                     } else {
                         p.sendMessage(ChatColor.GREEN + "You can't navigate to there since you aren't in the same world.");
                     }
@@ -140,12 +145,90 @@ public class BookmarkCommand implements TabExecutor {
                 }
             }
 
-            else {
-                p.sendMessage(ChatColor.BOLD + args[0] + " " + args[1] + ChatColor.RESET + " appears to be invalid or incomplete.");
+            else if (args[0].equals("navpl")) {
+                Player target = plugin.getServer().getPlayer(args[1]);
+                if (target == null || !target.isOnline()) {
+                    p.sendMessage(ChatColor.GREEN + "Unfortunately, " + ChatColor.BOLD + args[1] + ChatColor.RESET + ChatColor.GREEN + " is offline.");
+                    return true;
+                }
+                PlayerNavTask.addPlayer(p, new PlayerLocation(target));
             }
 
-        } else {
-            p.sendMessage("your command is invalid, but i don't know how. try reading the instructions");
+            else {
+                p.sendMessage(ChatColor.BOLD + args[0] + " " + args[1] + ChatColor.RESET + " appears to be invalid or incomplete. Are you sure you typed it out completely?");
+            }
+
+        }
+
+        else if (args.length == 3) {
+            if (args[0].equals("share")) {
+                // check if other player is online
+                Player target = plugin.getServer().getPlayer(args[2]);
+                if (target == null) {
+                    p.sendMessage(ChatColor.GREEN + "Unfortunately, " + args[1] + " is offline.");
+                    return true;
+                }
+
+                // check if this player even has a location by this name
+                if (!playerConfig.hasLocation(args[1])) {
+                    p.sendMessage(ChatColor.GREEN + "You don't have the location " + args[1] + " saved.");
+                    return true;
+                }
+
+                Location toSend = playerConfig.getLocation(args[1]);
+
+                // make sure it doesn't conflict with death location
+                if (args[1].equals(PlayerListener.LOCATION_NAME)) {
+                    p.sendMessage(ChatColor.GREEN + "You can't send that, since it is reserved for your death location. Rename it first.");
+                    return true;
+                }
+
+                // check if other player already has a location by this name
+                ConfigManager targetPlayerConfig = new ConfigManager(target, plugin);
+                if (targetPlayerConfig.hasLocation(args[1])) {
+                    p.sendMessage(ChatColor.GREEN + target.getName() + " already has a bookmark called " + args[1] + ". Ask them to rename it first.");
+                    return true;
+                }
+
+                targetPlayerConfig.addLocation(args[1], toSend);
+                targetPlayerConfig.saveConfig();
+
+                p.sendMessage(ChatColor.GREEN + "Sent " + args[1] + " to " + target.getName() + ".");
+                target.sendMessage(ChatColor.GREEN + "You were sent the location " + args[1] + " by " + p.getName() + ".");
+            }
+
+            else if (args[0].equals("rename") || args[0].equals("mv")) {
+                // check if location exists
+                if (!playerConfig.hasLocation(args[1])) {
+                    p.sendMessage(ChatColor.GREEN + "You don't have the location " + args[1] + " saved.");
+                    return true;
+                }
+
+                // check if desired name is already in use
+                if (playerConfig.hasLocation(args[2])) {
+                    p.sendMessage(ChatColor.GREEN + "You already have a location called " + args[2] + ".");
+                    return true;
+                }
+
+                // make sure it doesn't conflict with death location
+                if (args[2].equals(PlayerListener.LOCATION_NAME)) {
+                    p.sendMessage(ChatColor.GREEN + "You can't use that, since it is reserved for your death location. Try something else.");
+                    return true;
+                }
+
+                // copy to new name
+                playerConfig.addLocation(args[2], playerConfig.getLocation(args[1]));
+
+                // delete old name
+                playerConfig.removeLocation(args[1]);
+                playerConfig.saveConfig();
+
+                p.sendMessage(ChatColor.GREEN + "Renamed " + args[1] + " to " + args[2] + ".");
+            }
+        }
+
+        else {
+            p.sendMessage("you broke it????");
         }
         return true;
     }
@@ -168,31 +251,25 @@ public class BookmarkCommand implements TabExecutor {
         }
 
         if (args.length == 0 || (args.length == 1 && args[0].isEmpty())) {
-            return Arrays.asList("list", "del", "set", "nav", "clear");
+            return Arrays.asList("list", "clear", "del", "set", "nav", "navpl", "rename", "share");
         }
 
         else if (args.length == 1) {
-            // ls or list
-            if (args[0].startsWith("li")) {
-                return Collections.singletonList("list");
-            } else if (args[0].startsWith("l")) {
-                return Arrays.asList("list", "ls");
-            }
+            return Stream.of("list", "ls", "clear", "clr", "del", "set", "nav", "navpl", "rename", "mv", "share")
+                    .filter(s -> s.startsWith(args[0]))
+                    .collect(Collectors.toList());
 
-            // clr or clear
-            else if (args[0].startsWith("c")) {
-                return Arrays.asList("clear", "clr");
-            } else if (args[0].startsWith("cle")) {
-                return Collections.singletonList("clear");
-            }
-
-            else {
-                return Arrays.asList("del", "set", "nav");
-            }
         } else if (args.length == 2) {
-            if (args[0].equals("del") || args[0].equals("nav")) {
+            if (args[0].equals("del") || args[0].equals("nav") || args[0].equals("share") ||
+                    args[0].equals("rename") || args[0].equals("mv")) {
                 ConfigManager playerConfig = new ConfigManager((Player) commandSender, plugin);
-                return new ArrayList<>(playerConfig.getSavedLocations().keySet());
+                return new ArrayList<>(playerConfig.getSavedLocations().keySet()).stream()
+                        .filter(s -> s.startsWith(args[1]))
+                        .collect(Collectors.toList());
+            } else if (args[0].equals("navpl")) {
+                return plugin.getServer().getOnlinePlayers().stream().map(Player::getName)
+                        .filter(s -> s.startsWith(args[1]))
+                        .collect(Collectors.toList());
             }
         }
 

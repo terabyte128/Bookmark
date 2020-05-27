@@ -1,5 +1,6 @@
 package com.samwolfson.bookmark;
 
+import com.samwolfson.bookmark.locatable.Locatable;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -12,7 +13,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerNavTask implements Runnable {
-    private static final ConcurrentHashMap<Player, Location> playerList = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Player, Locatable> playerList = new ConcurrentHashMap<>();
     private static JavaPlugin plugin;
     private static int task = -1;
 
@@ -20,8 +21,8 @@ public class PlayerNavTask implements Runnable {
     public void run() {
         Set<Player> toRemove = new HashSet<>(); // remove players that have reached their dest
 
-        for (Map.Entry<Player, Location> pl : playerList.entrySet()) {
-            double dist = pl.getKey().getLocation().distance(pl.getValue());
+        for (Map.Entry<Player, Locatable> pl : playerList.entrySet()) {
+            double dist = pl.getKey().getLocation().distance(pl.getValue().getLocation());
 
             if (((int) dist) == 0) {
                 toRemove.add(pl.getKey());
@@ -43,9 +44,9 @@ public class PlayerNavTask implements Runnable {
             yaw = normalAbsoluteAngleDegrees(yaw);
 
 
-            double dx = -(pl.getKey().getLocation().getX() - pl.getValue().getX()); // positive x is downwards
-            double dy = pl.getValue().getY() - pl.getKey().getLocation().getY();
-            double dz = pl.getKey().getLocation().getZ() - pl.getValue().getZ();
+            double dx = -(pl.getKey().getLocation().getX() - pl.getValue().getLocation().getX()); // positive x is downwards
+            double dy = pl.getValue().getLocation().getY() - pl.getKey().getLocation().getY();
+            double dz = pl.getKey().getLocation().getZ() - pl.getValue().getLocation().getZ();
 
             double angleToDest = Math.toDegrees(Math.atan2(dx, dz));
             angleToDest = normalAbsoluteAngleDegrees(180+angleToDest);
@@ -80,7 +81,7 @@ public class PlayerNavTask implements Runnable {
 
     }
 
-    public static void addPlayer(Player p, Location dest) {
+    public static void addPlayer(Player p, Locatable dest) {
         playerList.put(p, dest);
 
         // if this is the first player, schedule the task
