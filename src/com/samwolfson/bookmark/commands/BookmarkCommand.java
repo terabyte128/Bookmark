@@ -11,6 +11,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerInteractEvent;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -18,6 +19,8 @@ import java.util.stream.Stream;
 
 public class BookmarkCommand implements TabExecutor {
     Bookmark plugin;
+
+    public static final String[] RESERVED_NAME = {PlayerListener.LOCATION_NAME, "bed"};
 
     public BookmarkCommand(Bookmark plugin) {
         this.plugin = plugin;
@@ -36,7 +39,8 @@ public class BookmarkCommand implements TabExecutor {
         // bad
         if (args.length < 1) {
             p.sendMessage("Usage:");
-            p.sendMessage("  /" + label + " set <name>: set a new bookmark called <name>");
+            p.sendMessage("  /" + label + " set <name>: set a new bookmark at your current location called <name>");
+            p.sendMessage("  /" + label + " set <name> <x> <y> <z>: set a new bookmark at a given location");
             p.sendMessage("  /" + label + " list: show all bookmarks (alias: ls)");
             p.sendMessage("  /" + label + " del <name>: delete bookmark");
             p.sendMessage("  /" + label + " nav <name>: navigate to bookmark");
@@ -66,6 +70,19 @@ public class BookmarkCommand implements TabExecutor {
                             thisWorld.add(namedLocation);
                         } else {
                             otherWorlds.add(namedLocation);
+                        }
+                    }
+
+                    Location bedLocation = p.getBedSpawnLocation();
+
+                    // if the player has a bed, then add that to their navigable location list
+                    if (bedLocation != null) {
+                        NamedLocation namedBedLocation = new NamedLocation("bed", bedLocation);
+
+                        if (Objects.equals(bedLocation.getWorld(), p.getWorld())) {
+                            thisWorld.add(namedBedLocation);
+                        } else {
+                            otherWorlds.add(namedBedLocation);
                         }
                     }
 
@@ -112,8 +129,8 @@ public class BookmarkCommand implements TabExecutor {
             if (args[0].equals("set")) {
                 if (playerConfig.hasLocation(args[1])) {
                     p.sendMessage(ChatColor.GREEN + "You've already used that as a location name. Delete it first using " + ChatColor.BOLD + "/bm del " + args[1]);
-                } else if (args[1].equals(PlayerListener.LOCATION_NAME)) {
-                    p.sendMessage(ChatColor.GREEN + "You can't use that as a location, since it is reserved for your death location.");
+                } else if (Arrays.stream(RESERVED_NAME).anyMatch(playerConfig::hasLocation)) {
+                    p.sendMessage(ChatColor.GREEN + "You can't use that as a location, since it is reserved.");
                 } else {
                     Location pl = p.getLocation();
                     p.sendMessage(ChatColor.GREEN + "Added bookmark " + ChatColor.BOLD + args[1] + ChatColor.RESET + " for " + ChatColor.BOLD + Bookmark.prettyLocation(pl) + ChatColor.RESET + ChatColor.GREEN + ".");
@@ -122,10 +139,12 @@ public class BookmarkCommand implements TabExecutor {
                 }
             }
 
-            else if (args[0].equals("del")) {
+            else if (args[0].equals("del") || args[0].equals("rm")) {
                 if (playerConfig.hasLocation(args[1])) {
                     playerConfig.removeLocation(args[1]);
                     p.sendMessage(ChatColor.GREEN + "Removed bookmark " + ChatColor.BOLD + args[1] + ChatColor.RESET + ChatColor.GREEN + ".");
+                } else if (args[1].equals("bed"))  {
+                    p.sendMessage(ChatColor.GREEN + "You can't delete your bed location.");
                 } else {
                     p.sendMessage(ChatColor.GREEN + "Unfortunately, " + ChatColor.BOLD + args[1] + ChatColor.RESET + ChatColor.GREEN + " does not exist.");
                 }
@@ -133,7 +152,16 @@ public class BookmarkCommand implements TabExecutor {
             }
 
             else if (args[0].equals("nav")) {
-                if (playerConfig.hasLocation(args[1])) {
+                if (args[1].equals("bed")) {
+                    Location bedLocation = p.getBedSpawnLocation();
+                    if (bedLocation != null) {
+                        PlayerNavTask.addPlayer(p, new StaticLocation(bedLocation));
+                    } else {
+                        p.sendMessage(ChatColor.GREEN + "Unfortunately, you don't have a bed location set.");
+                    }
+                }
+
+                else if (playerConfig.hasLocation(args[1])) {
                     Location desired = playerConfig.getLocation(args[1]);
                     if (Objects.equals(p.getLocation().getWorld(), desired.getWorld())) {
                         PlayerNavTask.addPlayer(p, new StaticLocation(desired));
@@ -169,6 +197,11 @@ public class BookmarkCommand implements TabExecutor {
                     return true;
                 }
 
+                if (args[1].equals("bed")) {
+                    p.sendMessage(ChatColor.GREEN + "You can't send your bed location. However, you can rename it and then send that.");
+                    return true;
+                }
+
                 // check if this player even has a location by this name
                 if (!playerConfig.hasLocation(args[1])) {
                     p.sendMessage(ChatColor.GREEN + "You don't have the location " + args[1] + " saved.");
@@ -198,12 +231,6 @@ public class BookmarkCommand implements TabExecutor {
             }
 
             else if (args[0].equals("rename") || args[0].equals("mv")) {
-                // check if location exists
-                if (!playerConfig.hasLocation(args[1])) {
-                    p.sendMessage(ChatColor.GREEN + "You don't have the location " + args[1] + " saved.");
-                    return true;
-                }
-
                 // check if desired name is already in use
                 if (playerConfig.hasLocation(args[2])) {
                     p.sendMessage(ChatColor.GREEN + "You already have a location called " + args[2] + ".");
@@ -211,8 +238,22 @@ public class BookmarkCommand implements TabExecutor {
                 }
 
                 // make sure it doesn't conflict with death location
-                if (args[2].equals(PlayerListener.LOCATION_NAME)) {
-                    p.sendMessage(ChatColor.GREEN + "You can't use that, since it is reserved for your death location. Try something else.");
+                if (Arrays.asList(RESERVED_NAME).contains(args[2])) {
+                    p.sendMessage(ChatColor.GREEN + "You can't use that as a name, since it is reserved. Try something else.");
+                    return true;
+                }
+
+                // special case for bed location
+                if (args[1].equals("bed")) {
+                    playerConfig.addLocation(args[2], p.getBedSpawnLocation());
+                    playerConfig.saveConfig();
+                    p.sendMessage(ChatColor.GREEN + "Copied your bed location to " + args[2] + ".");
+                    return true;
+                }
+
+                // check if location exists
+                if (!playerConfig.hasLocation(args[1])) {
+                    p.sendMessage(ChatColor.GREEN + "You don't have the location " + args[1] + " saved.");
                     return true;
                 }
 
@@ -225,6 +266,31 @@ public class BookmarkCommand implements TabExecutor {
 
                 p.sendMessage(ChatColor.GREEN + "Renamed " + args[1] + " to " + args[2] + ".");
             }
+        }
+
+        else if (args.length == 5 && args[0].equals("set")) {
+            // setting a location based on x/y/z coordinates
+            if (playerConfig.hasLocation(args[1])) {
+                p.sendMessage(ChatColor.GREEN + "You already have a location called " + args[2] + ".");
+                return true;
+            }
+
+            int x, y, z;
+
+            try {
+                x = Integer.parseInt(args[2]);
+                y = Integer.parseInt(args[3]);
+                z = Integer.parseInt(args[4]);
+            } catch (NumberFormatException e) {
+                p.sendMessage(ChatColor.GREEN + "Failed to set location: x, y, and z must all be integers.");
+                return true;
+            }
+
+            Location newLocation = new Location(p.getWorld(), x, y, z);
+            playerConfig.addLocation(args[1], newLocation);
+            playerConfig.saveConfig();
+
+            p.sendMessage(ChatColor.GREEN + "Added bookmark " + ChatColor.BOLD + args[1] + ChatColor.RESET + " for " + ChatColor.BOLD + Bookmark.prettyLocation(newLocation) + ChatColor.RESET + ChatColor.GREEN + ".");
         }
 
         else {
@@ -255,15 +321,19 @@ public class BookmarkCommand implements TabExecutor {
         }
 
         else if (args.length == 1) {
-            return Stream.of("list", "ls", "clear", "clr", "del", "set", "nav", "navpl", "rename", "mv", "share")
+            return Stream.of("list", "ls", "clear", "clr", "del", "rm", "set", "nav", "navpl", "rename", "mv", "share")
                     .filter(s -> s.startsWith(args[0]))
                     .collect(Collectors.toList());
 
         } else if (args.length == 2) {
-            if (args[0].equals("del") || args[0].equals("nav") || args[0].equals("share") ||
+            if (args[0].equals("del") || args[0].equals("rm") || args[0].equals("nav") || args[0].equals("share") ||
                     args[0].equals("rename") || args[0].equals("mv")) {
                 ConfigManager playerConfig = new ConfigManager((Player) commandSender, plugin);
-                return new ArrayList<>(playerConfig.getSavedLocations().keySet()).stream()
+                Set<String> navigableLocs = new HashSet<String>(playerConfig.getSavedLocations().keySet());
+                if (((Player) commandSender).getBedSpawnLocation() != null) {
+                    navigableLocs.add("bed");
+                }
+                return navigableLocs.stream()
                         .filter(s -> s.startsWith(args[1]))
                         .collect(Collectors.toList());
             } else if (args[0].equals("navpl")) {
