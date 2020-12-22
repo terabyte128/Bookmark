@@ -151,11 +151,10 @@ public class BookmarkCommand implements TabExecutor {
             else if (args[0].equals("nav")) {
                 if (args[1].equals("?")) {
                     Location playerLocation = p.getLocation();
-                    int randX = (int) (Math.random() - 0.5) * 1000, randZ = (int) (Math.random() - 0.5) * 1000;
+                    int randX = (int) ((Math.random() - 0.5) * 1000), randZ = (int) ((Math.random() - 0.5) * 1000);
 
                     Location target = playerLocation.clone().add(randX, 0, randZ);
                     p.sendMessage(ChatColor.GREEN + String.format("Congrats, you're going to x = %d, z = %d", (int) target.getX(), (int) target.getZ()));
-
                     PlayerNavTask.addPlayer(p, new StaticLocation(target));
                 }
 
@@ -184,8 +183,10 @@ public class BookmarkCommand implements TabExecutor {
                 Player target;
 
                 if (args[1].equals("?")) {
-                    int random = (int) (Math.random() * plugin.getServer().getOnlinePlayers().size());
-                    target = (Player) plugin.getServer().getOnlinePlayers().toArray()[random];
+                    Collection<Player> allowed = plugin.getServer().getOnlinePlayers().stream().filter(op -> op.getWorld().equals(p.getWorld())).collect(Collectors.toList());
+
+                    int random = (int) (Math.random() * allowed.size());
+                    target = (Player) allowed.toArray()[random];
                     p.sendMessage(ChatColor.GREEN + "You're navigating to " + ChatColor.ITALIC + target.getName());
                 } else {
                     target = plugin.getServer().getPlayer(args[1]);

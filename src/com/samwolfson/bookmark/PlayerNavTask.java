@@ -83,7 +83,6 @@ public class PlayerNavTask implements Runnable {
 
     public static void addPlayer(Player p, Locatable dest) {
         playerList.put(p, dest);
-
         // if this is the first player, schedule the task
         if (task == -1) {
             task = plugin.getServer().getScheduler().scheduleSyncRepeatingTask(plugin, new PlayerNavTask(), 0L, 10L);
