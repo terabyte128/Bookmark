@@ -34,7 +34,9 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onPlayerChangeWorld(PlayerChangedWorldEvent event) {
-        event.getPlayer().sendMessage(ChatColor.GREEN + "Since you changed worlds, your navigation was cancelled.");
-        PlayerNavTask.removePlayer(event.getPlayer());
+        if (PlayerNavTask.hasPlayer(event.getPlayer())) {
+            event.getPlayer().sendMessage(ChatColor.GREEN + "Since you changed worlds, your navigation was cancelled.");
+            PlayerNavTask.removePlayer(event.getPlayer());
+        }
     }
 }

@@ -1,7 +1,6 @@
 package com.samwolfson.bookmark.commands;
 
 import com.samwolfson.bookmark.*;
-import com.samwolfson.bookmark.locatable.Locatable;
 import com.samwolfson.bookmark.locatable.PlayerLocation;
 import com.samwolfson.bookmark.locatable.StaticLocation;
 import org.bukkit.ChatColor;
@@ -9,9 +8,7 @@ import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerInteractEvent;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -20,7 +17,7 @@ import java.util.stream.Stream;
 public class BookmarkCommand implements TabExecutor {
     Bookmark plugin;
 
-    public static final String[] RESERVED_NAME = {PlayerListener.LOCATION_NAME, "bed"};
+    public static final String[] RESERVED_NAME = {PlayerListener.LOCATION_NAME, "bed", "?"};
 
     public BookmarkCommand(Bookmark plugin) {
         this.plugin = plugin;
@@ -129,7 +126,7 @@ public class BookmarkCommand implements TabExecutor {
             if (args[0].equals("set")) {
                 if (playerConfig.hasLocation(args[1])) {
                     p.sendMessage(ChatColor.GREEN + "You've already used that as a location name. Delete it first using " + ChatColor.BOLD + "/bm del " + args[1]);
-                } else if (Arrays.stream(RESERVED_NAME).anyMatch(playerConfig::hasLocation)) {
+                } else if (Arrays.asList(RESERVED_NAME).contains(args[1])) {
                     p.sendMessage(ChatColor.GREEN + "You can't use that as a location, since it is reserved.");
                 } else {
                     Location pl = p.getLocation();
@@ -152,7 +149,17 @@ public class BookmarkCommand implements TabExecutor {
             }
 
             else if (args[0].equals("nav")) {
-                if (args[1].equals("bed")) {
+                if (args[1].equals("?")) {
+                    Location playerLocation = p.getLocation();
+                    int randX = (int) (Math.random() - 0.5) * 1000, randZ = (int) (Math.random() - 0.5) * 1000;
+
+                    Location target = playerLocation.clone().add(randX, 0, randZ);
+                    p.sendMessage(ChatColor.GREEN + String.format("Congrats, you're going to x = %d, z = %d", (int) target.getX(), (int) target.getZ()));
+
+                    PlayerNavTask.addPlayer(p, new StaticLocation(target));
+                }
+
+                else if (args[1].equals("bed")) {
                     Location bedLocation = p.getBedSpawnLocation();
                     if (bedLocation != null) {
                         PlayerNavTask.addPlayer(p, new StaticLocation(bedLocation));
@@ -174,11 +181,21 @@ public class BookmarkCommand implements TabExecutor {
             }
 
             else if (args[0].equals("navpl")) {
-                Player target = plugin.getServer().getPlayer(args[1]);
+                Player target;
+
+                if (args[1].equals("?")) {
+                    int random = (int) (Math.random() * plugin.getServer().getOnlinePlayers().size());
+                    target = (Player) plugin.getServer().getOnlinePlayers().toArray()[random];
+                    p.sendMessage(ChatColor.GREEN + "You're navigating to " + ChatColor.ITALIC + target.getName());
+                } else {
+                    target = plugin.getServer().getPlayer(args[1]);
+                }
+
                 if (target == null || !target.isOnline()) {
                     p.sendMessage(ChatColor.GREEN + "Unfortunately, " + ChatColor.BOLD + args[1] + ChatColor.RESET + ChatColor.GREEN + " is offline.");
                     return true;
                 }
+
                 PlayerNavTask.addPlayer(p, new PlayerLocation(target));
             }
 
@@ -272,6 +289,9 @@ public class BookmarkCommand implements TabExecutor {
             // setting a location based on x/y/z coordinates
             if (playerConfig.hasLocation(args[1])) {
                 p.sendMessage(ChatColor.GREEN + "You already have a location called " + args[2] + ".");
+                return true;
+            } else if (Arrays.asList(RESERVED_NAME).contains(args[1])) {
+                p.sendMessage(ChatColor.GREEN + "You can't use that as a location, since it is reserved.");
                 return true;
             }
 

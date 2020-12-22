@@ -101,6 +101,10 @@ public class PlayerNavTask implements Runnable {
         }
     }
 
+    public static boolean hasPlayer(Player p) {
+        return playerList.containsKey(p);
+    }
+
     public static void setPlugin(JavaPlugin p) {
         plugin = p;
     }
