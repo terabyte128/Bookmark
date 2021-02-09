@@ -1,16 +1,14 @@
 package com.samwolfson.bookmark;
 
-import com.samwolfson.bookmark.locatable.Locatable;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitScheduler;
-
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import com.samwolfson.bookmark.locatable.Locatable;
+
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public class PlayerNavTask implements Runnable {
     private static final ConcurrentHashMap<Player, Locatable> playerList = new ConcurrentHashMap<>();

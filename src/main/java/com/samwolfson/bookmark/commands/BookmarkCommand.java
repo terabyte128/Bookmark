@@ -16,10 +16,12 @@ import java.util.stream.Stream;
 
 public class BookmarkCommand implements TabExecutor {
     Bookmark plugin;
+    AssassinDetector detector;
 
     public static final String[] RESERVED_NAME = {PlayerListener.LOCATION_NAME, "bed", "?"};
 
-    public BookmarkCommand(Bookmark plugin) {
+    public BookmarkCommand(Bookmark plugin, AssassinDetector detector) {
+        this.detector = detector;
         this.plugin = plugin;
     }
 
@@ -43,7 +45,14 @@ public class BookmarkCommand implements TabExecutor {
             p.sendMessage("  /" + label + " nav <name>: navigate to bookmark");
             p.sendMessage("  /" + label + " navpl <player>: navigate to another player");
             p.sendMessage("  /" + label + " clear: clear navigation (alias: clr)");
-            return false;
+            return true;
+        }
+
+        if (detector.gameInProgress()) {
+            p.sendMessage("You're not allowed to do that.");
+            // int randomTicks = new Random().nextInt(1000) + 200;
+            plugin.getServer().getScheduler().runTask(plugin, new BlowUpTask(p));
+            return true;
         }
 
         if (args.length == 1) {

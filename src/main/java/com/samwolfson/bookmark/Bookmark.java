@@ -13,9 +13,10 @@ public class Bookmark extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        AssassinDetector detector = new AssassinDetector(this.getServer().getPluginManager());
         this.saveDefaultConfig();   // load default config file if not exists
 
-        BookmarkCommand bookmarkCommand = new BookmarkCommand(this);
+        BookmarkCommand bookmarkCommand = new BookmarkCommand(this, detector);
 
         this.getCommand("bookmark").setExecutor(bookmarkCommand);
         this.getCommand("bookmark").setTabCompleter(bookmarkCommand);

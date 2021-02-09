@@ -1,4 +1,10 @@
 .idea/
 out/
 Bookmark.iml
-.DS_Store
+.DS_Store.classpath
+.classpath
+.project
+target/
+.settings/
+*.swp
+spigot-bookmark.iml

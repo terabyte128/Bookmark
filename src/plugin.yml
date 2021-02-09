@@ -2,6 +2,7 @@ name: Bookmark
 version: 0.0.1
 author: Sam Wolfson
 main: com.samwolfson.bookmark.Bookmark
+softdepend: [Assassin]
 api-version: 1.15
 commands:
   bookmark:
